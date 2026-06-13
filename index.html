@@ -1,0 +1,453 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>食物管家</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Food Pantry</p>
+        <h1>食物管家</h1>
+      </div>
+      <div class="toolbar">
+        <label class="language-control">
+          <span>Language</span>
+          <select id="languageSelect" aria-label="Language">
+            <option value="zh">中文</option>
+            <option value="en">English</option>
+          </select>
+        </label>
+        <button class="icon-button" id="seedDemo" title="载入示例数据" aria-label="载入示例数据"><span aria-hidden="true">+</span></button>
+        <button class="icon-button" id="exportData" title="导出数据" aria-label="导出数据"><span aria-hidden="true">↓</span></button>
+        <label class="icon-button file-button" title="导入数据" aria-label="导入数据">
+          <span aria-hidden="true">↑</span>
+          <input id="importData" type="file" accept="application/json">
+        </label>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <section class="summary-band" aria-label="库存概览">
+        <article class="summary-card" data-summary="all" role="button" tabindex="0" aria-label="查看全部库存">
+          <span id="totalItems">0</span>
+          <p>库存食材</p>
+        </article>
+        <article class="summary-card" data-summary="expiring" role="button" tabindex="0" aria-label="查看7天内到期食材">
+          <span id="expiringItems">0</span>
+          <p>7天内到期</p>
+        </article>
+        <article class="summary-card" data-summary="planned" role="button" tabindex="0" aria-label="查看菜单计划">
+          <span id="plannedMeals">0</span>
+          <p>已计划餐次</p>
+        </article>
+        <article class="summary-card" data-summary="depleted" role="button" tabindex="0" aria-label="查看已用完批次">
+          <span id="lowStockItems">0</span>
+          <p>已用完批次</p>
+        </article>
+      </section>
+
+      <nav class="view-tabs" aria-label="页面切换">
+        <button class="tab-button" id="dashboardTab" type="button">看板</button>
+        <button class="tab-button is-active" id="inventoryTab" type="button">库存</button>
+        <button class="tab-button" id="mealTab" type="button">菜单</button>
+        <button class="tab-button" id="manageTab" type="button">分类/位置</button>
+      </nav>
+
+      <section class="view-panel dashboard-page hidden" id="dashboardView">
+        <section class="panel dashboard-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Dashboard</p>
+              <h2>饮食消耗看板</h2>
+              <p class="panel-note">统计最近 7 天的库存消耗和饮食分类均衡。</p>
+            </div>
+          </div>
+          <section class="dashboard-grid">
+            <article class="dashboard-card">
+              <span id="dashConsumedCount">0</span>
+              <p>消耗食材种类</p>
+            </article>
+            <article class="dashboard-card">
+              <span id="dashMealCount">0</span>
+              <p>计划餐次</p>
+            </article>
+            <article class="dashboard-card">
+              <span id="dashCategoryCount">0</span>
+              <p>覆盖分类</p>
+            </article>
+          </section>
+          <section class="dashboard-split">
+            <article class="dashboard-block">
+              <div class="mini-head">
+                <strong>分类消耗</strong>
+                <span>按数量汇总</span>
+              </div>
+              <div id="categoryBalanceList" class="balance-list"></div>
+            </article>
+            <article class="dashboard-block">
+              <div class="mini-head">
+                <strong>均衡提示</strong>
+                <span>基于分类覆盖</span>
+              </div>
+              <div id="balanceTips" class="tip-list"></div>
+            </article>
+          </section>
+          <section class="dashboard-history">
+            <article class="dashboard-block">
+              <div class="mini-head">
+                <strong>消耗总统计</strong>
+                <span>全部记录汇总</span>
+              </div>
+              <div id="consumptionStatsList" class="stats-list"></div>
+            </article>
+          </section>
+        </section>
+      </section>
+
+      <section class="view-panel workspace" id="inventoryView">
+        <aside class="panel inventory-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Inventory Input</p>
+              <h2>录入库存</h2>
+            </div>
+          </div>
+
+          <form id="foodForm" class="food-form">
+            <label class="food-name-field">
+              食材
+              <input id="foodName" type="text" placeholder="鸡蛋" required>
+            </label>
+            <div class="form-row">
+              <label class="food-qty-field">
+                数量
+                <input id="foodQty" type="number" min="0" step="0.1" value="1" required>
+              </label>
+              <label class="food-unit-field">
+                单位
+                <input id="foodUnit" type="text" placeholder="个/斤/包" value="份">
+              </label>
+              <label class="food-calorie-field">
+                每单位热量
+                <input id="foodCalories" type="number" min="0" step="1" placeholder="自动估算">
+              </label>
+            </div>
+            <div class="form-row">
+              <label class="food-category-field">
+                分类
+                <select id="foodCategory" aria-label="选择分类"></select>
+              </label>
+              <label class="food-expiry-field">
+                到期日
+                <input id="foodExpiry" type="date">
+              </label>
+              <label class="food-storage-field">
+                贮藏位置
+                <select id="foodStorage" aria-label="选择贮藏位置"></select>
+              </label>
+            </div>
+            <label class="image-field">
+              图片
+              <input id="foodImage" type="file" accept="image/*">
+              <div class="image-preview" id="foodImagePreview" aria-live="polite"></div>
+              <button class="text-button hidden" id="removeFoodImage" type="button">移除图片</button>
+            </label>
+            <div class="button-row">
+              <button class="primary-button" id="foodSubmit" type="submit">添加食物</button>
+              <button class="ghost-button hidden" id="cancelFoodEdit" type="button">取消编辑</button>
+            </div>
+          </form>
+
+          <section class="consume-panel" aria-label="日常消耗">
+            <div class="mini-head">
+              <strong>日常消耗</strong>
+              <span>从库存直接扣除</span>
+            </div>
+            <div class="consume-row">
+              <input id="dailyDate" type="date" aria-label="消耗日期">
+              <input id="dailyFoodSearch" type="search" placeholder="搜索食材 / 分类 / 位置">
+              <select id="dailyFood" aria-label="选择消耗食材"></select>
+              <input id="dailyQty" type="number" min="0.1" step="0.1" value="1" placeholder="1" aria-label="份数">
+              <button class="ghost-button" id="dailyConsume" type="button">加餐</button>
+            </div>
+          </section>
+        </aside>
+
+        <section class="panel display-panel" id="inventoryDisplay">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Inventory View</p>
+              <h2 id="stockViewTitle">全部库存</h2>
+              <p class="panel-note" id="stockQuickHint">查看当前库存、位置和到期状态。</p>
+            </div>
+            <div class="view-tools">
+              <button class="ghost-button compact-reset hidden" id="resetStockFilter" type="button">回全部库存</button>
+              <div class="segmented" aria-label="库存视图">
+                <button class="is-active" id="cardInventoryView" type="button">卡片</button>
+                <button id="tableInventoryView" type="button">表格</button>
+              </div>
+              <label class="compact-check">
+                <input id="categoryMultiSelect" type="checkbox" checked>
+                <span>多选分类</span>
+              </label>
+            </div>
+          </div>
+          <div id="categoryFilter" class="slicer-row" role="group" aria-label="按分类筛选"></div>
+
+          <div class="search-strip">
+            <input id="searchInput" type="search" placeholder="搜索食物、分类或位置">
+            <select id="sortMode" aria-label="排序方式">
+              <option value="expiry">按到期日</option>
+              <option value="name">按食材</option>
+              <option value="qty">按数量</option>
+            </select>
+            <select id="storageFilter" aria-label="按贮藏位置筛选">
+              <option value="all">全部位置</option>
+            </select>
+          </div>
+          <label class="switch-row">
+            <input id="showDepleted" type="checkbox">
+            <span class="switch-track" aria-hidden="true"></span>
+            <span>显示已用完食材</span>
+          </label>
+
+          <div id="foodList" class="food-list display-food-list" aria-live="polite"></div>
+        </section>
+      </section>
+
+      <section class="view-panel meal-page hidden" id="mealView">
+        <section class="panel planner-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Meal Input</p>
+              <h2>菜单输入与日历</h2>
+            </div>
+          </div>
+
+          <section class="recipe-suggestions" aria-label="根据库存推荐菜谱">
+            <div class="mini-head">
+              <strong>根据库存推荐菜谱</strong>
+              <button class="text-button" id="searchRecipesOnline" type="button">联网搜索</button>
+            </div>
+            <div class="api-row">
+              <input id="openaiApiKey" type="password" placeholder="OpenAI API Key，仅保存在本机浏览器">
+              <select id="recipeModel" aria-label="菜谱推荐模型">
+                <option value="gpt-5-mini">gpt-5-mini</option>
+                <option value="gpt-5-nano">gpt-5-nano</option>
+                <option value="gpt-5.2">gpt-5.2</option>
+              </select>
+              <button class="ghost-button" id="aiRecommendRecipes" type="button">AI推荐</button>
+            </div>
+            <div id="recipeSuggestions" class="suggestion-list"></div>
+          </section>
+
+          <form id="mealForm" class="meal-form">
+            <label>
+              日期
+              <input id="mealDate" type="date" required>
+            </label>
+            <label>
+              餐次
+              <select id="mealSlot">
+                <option value="早餐">早餐</option>
+                <option value="午餐">午餐</option>
+                <option value="晚餐">晚餐</option>
+                <option value="加餐">加餐</option>
+              </select>
+            </label>
+            <label>
+              菜名
+              <input id="mealName" type="text" placeholder="可不填，例如：番茄炒蛋">
+            </label>
+            <label class="wide">
+              备注食材
+              <input id="mealIngredients" type="text" placeholder="可写不在库存里的配料">
+            </label>
+
+            <section class="linked-consumption wide" aria-label="关联库存食材">
+              <div class="mini-head">
+                <strong>关联库存食材</strong>
+                <span>加入菜单时会自动扣库存</span>
+              </div>
+              <div class="consume-row">
+                <input id="mealFoodSearch" type="search" placeholder="搜索库存食材">
+                <select id="mealFood" aria-label="选择菜单使用的库存食材"></select>
+                <input id="mealFoodQty" type="number" min="0.1" step="0.1" value="1" placeholder="1" aria-label="份数">
+                <button class="ghost-button" id="addMealFood" type="button">加入食材</button>
+              </div>
+              <div id="mealFoodList" class="linked-list"></div>
+            </section>
+
+            <div class="meal-actions wide">
+              <button class="primary-button" id="mealSubmit" type="submit">加入计划并扣库存</button>
+              <button class="ghost-button" id="clearMealDraft" type="button">清空菜单</button>
+              <button class="ghost-button hidden" id="cancelMealEdit" type="button">取消编辑</button>
+            </div>
+          </form>
+
+          <section class="planner-inline" id="plannerDisplay" aria-label="每日菜单">
+            <div class="mini-head">
+              <strong>每日菜单</strong>
+              <div class="planner-controls" aria-label="切换日期范围">
+                <button class="mini-button" id="prevPlannerWeek" type="button" title="上一周" aria-label="上一周">‹</button>
+                <span id="plannerRangeLabel">本周</span>
+                <button class="mini-button" id="compactPlannerView" type="button">简洁</button>
+                <button class="mini-button" id="todayPlannerWeek" type="button">今天</button>
+                <button class="mini-button" id="nextPlannerWeek" type="button" title="下一周" aria-label="下一周">›</button>
+              </div>
+            </div>
+            <div class="planner-grid" id="plannerGrid" aria-live="polite"></div>
+          </section>
+          <section class="planner-inline meal-history-panel" aria-label="菜单历史">
+            <div class="mini-head">
+              <strong>菜单历史</strong>
+              <span>翻看以前安排过的菜单</span>
+            </div>
+            <div id="mealHistoryList" class="record-list"></div>
+          </section>
+        </section>
+      </section>
+
+      <section class="view-panel manage-page hidden" id="manageView">
+        <section class="panel manage-page-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Options</p>
+              <h2>分类与贮藏位置管理</h2>
+              <p class="panel-note">维护库存录入时的常用下拉选项。</p>
+            </div>
+          </div>
+          <section class="manage-panel" aria-label="分类与位置管理">
+            <div class="manage-grid">
+              <div class="manage-block">
+                <label>
+                  新分类
+                  <div class="manage-row">
+                    <input id="manageCategoryInput" type="text" placeholder="例如：零食">
+                    <button class="ghost-button" id="addCategoryOption" type="button">添加</button>
+                  </div>
+                </label>
+                <div id="categoryOptionList" class="option-chip-list"></div>
+              </div>
+              <div class="manage-block">
+                <label>
+                  新贮藏位置
+                  <div class="manage-row">
+                    <input id="manageStorageInput" type="text" placeholder="例如：玄关柜">
+                    <button class="ghost-button" id="addStorageOption" type="button">添加</button>
+                  </div>
+                </label>
+                <div id="storageOptionList" class="option-chip-list"></div>
+              </div>
+            </div>
+          </section>
+          <section class="manage-panel" aria-label="库存数据模板导入">
+            <div class="mini-head">
+              <strong>库存数据模板</strong>
+              <span id="inventoryTemplateHint">支持直接从 Excel 复制表格粘贴，也保留 JSON 导入。</span>
+            </div>
+            <div class="template-toolbar">
+              <div class="template-mode-switch" aria-label="库存模板导入方式">
+                <button class="mini-button is-active" id="templateSheetMode" type="button">Excel粘贴</button>
+                <button class="mini-button" id="templateJsonMode" type="button">JSON</button>
+              </div>
+              <div class="template-toolbar-actions">
+                <button class="ghost-button" id="downloadInventoryTemplate" type="button">下载模板</button>
+                <label class="ghost-button file-button template-file-button">
+                  导入CSV
+                  <input id="inventoryTemplateFile" type="file" accept=".csv,text/csv,.txt">
+                </label>
+              </div>
+            </div>
+            <div class="template-guide" id="templateGuide" aria-label="Excel 列说明">
+              <span>名称</span>
+              <span>数量</span>
+              <span>单位</span>
+              <span>热量</span>
+              <span>分类</span>
+              <span>到期日</span>
+              <span>贮藏位置</span>
+            </div>
+            <div class="template-layout">
+              <label class="template-field">
+                导入内容
+                <textarea id="inventoryTemplateInput" rows="9" placeholder="名称\t数量\t单位\t热量\t分类\t到期日\t贮藏位置&#10;鸡蛋\t12\t个\t78\t肉蛋\t2026-06-06\t冰箱冷藏&#10;番茄\t4\t个\t22\t蔬菜\t2026-06-05\t台面"></textarea>
+              </label>
+              <section class="template-preview" aria-label="库存模板预览">
+                <div class="mini-head">
+                  <strong>导入预览</strong>
+                  <span id="inventoryTemplatePreviewMeta">等待粘贴</span>
+                </div>
+                <div id="inventoryTemplatePreview" class="template-preview-table"></div>
+              </section>
+            </div>
+            <div class="template-actions">
+              <button class="ghost-button" id="loadInventoryTemplateSample" type="button">填入示例</button>
+              <button class="ghost-button" id="importInventoryTemplateAppend" type="button">追加导入</button>
+              <button class="ghost-button danger-action" id="importInventoryTemplateReplace" type="button">覆盖导入</button>
+            </div>
+          </section>
+          <section class="manage-panel danger-panel" aria-label="维护操作">
+            <div class="mini-head">
+              <strong>维护操作</strong>
+              <span>集中处理高风险操作，执行前会确认</span>
+            </div>
+            <div class="danger-grid">
+              <button class="ghost-button danger-action" id="clearAllMealPlans" type="button">清空全部菜单计划</button>
+              <button class="ghost-button danger-action" id="removeDepletedFoods" type="button">清理已用完库存批次</button>
+              <button class="ghost-button danger-action" id="clearAllInventory" type="button">清空全部库存</button>
+              <button class="ghost-button danger-action" id="resetAllData" type="button">重置全部数据</button>
+            </div>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <div class="export-overlay hidden" id="exportOverlay" aria-hidden="true">
+      <section class="export-dialog" aria-label="导出数据">
+        <div class="panel-head export-head">
+          <div>
+            <p class="eyebrow">Export</p>
+            <h2>导出数据</h2>
+            <p class="panel-note" id="exportStatus">如果 Codex 浏览器没有直接下载，这里可以直接保存或复制完整数据。</p>
+          </div>
+          <button class="icon-button" id="closeExportOverlay" type="button" title="关闭导出面板" aria-label="关闭导出面板">×</button>
+        </div>
+        <div class="export-actions">
+          <button class="ghost-button" id="saveExportFile" type="button">保存到文件</button>
+          <button class="ghost-button" id="copyExportText" type="button">复制内容</button>
+        </div>
+        <label class="template-field export-field">
+          导出内容
+          <textarea id="exportText" rows="14" spellcheck="false" readonly></textarea>
+        </label>
+      </section>
+    </div>
+
+    <template id="foodItemTemplate">
+      <article class="food-item">
+        <div class="food-thumb" aria-hidden="true"></div>
+        <div class="food-main">
+          <div class="item-row">
+            <div class="item-title">
+              <strong></strong>
+              <span class="tag"></span>
+            </div>
+            <div class="item-actions">
+              <button class="mini-button edit" type="button" title="编辑" aria-label="编辑">✎</button>
+              <input class="quick-qty" type="text" inputmode="decimal" value="1" title="加餐份数" aria-label="加餐份数">
+              <button class="mini-button consume" type="button" title="加餐并扣库存" aria-label="加餐并扣库存">＋</button>
+              <button class="mini-button delete" type="button" title="删除" aria-label="删除">×</button>
+            </div>
+          </div>
+          <p class="meta"></p>
+        </div>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
